@@ -8,13 +8,15 @@ import { SidebarNav } from "@/components/sidebar-nav";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Trade Journal Pro",
-  description: "Modern trading journal application",
+title: "Trade Journal Pro",
+description: "Modern trading journal application",
+manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
+width: "device-width",
+initialScale: 1,
+themeColor: "#000000",
 };
 
 export default function RootLayout({
@@ -24,9 +26,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body
-        className={`${inter.className} overflow-x-hidden`}
-      >
+      <body className={`${inter.className} overflow-x-hidden`}>
         <div className="flex min-h-screen w-full overflow-x-hidden">
           <SidebarNav />
 
