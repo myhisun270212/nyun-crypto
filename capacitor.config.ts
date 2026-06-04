@@ -3,9 +3,9 @@ import { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.tradejournal.pro',
   appName: 'Trade Journal Pro',
-  webDir: 'out',
   server: {
-    androidScheme: 'https'
+    url: 'https://nyun-crypto.vercel.app',
+    cleartext: false
   }
 };
 
