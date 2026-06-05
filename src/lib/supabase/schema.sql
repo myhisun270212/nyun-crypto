@@ -44,6 +44,16 @@ CREATE TABLE triggers (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Account Settings Table
+CREATE TABLE account_settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  starting_balance NUMERIC NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
 -- Main Trades Table
 CREATE TABLE trades (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -85,6 +95,7 @@ ALTER TABLE btc_contexts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE oi_conditions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE funding_conditions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE triggers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE account_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trades ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for Master Data Tables (Read-only for all authenticated users)
@@ -101,6 +112,12 @@ CREATE POLICY "Users can view their own trades" ON trades FOR SELECT USING (auth
 CREATE POLICY "Users can insert their own trades" ON trades FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own trades" ON trades FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own trades" ON trades FOR DELETE USING (auth.uid() = user_id);
+
+-- RLS Policies for Account Settings (Users can only access their own settings)
+CREATE POLICY "Users can view their own account settings" ON account_settings FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own account settings" ON account_settings FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own account settings" ON account_settings FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own account settings" ON account_settings FOR DELETE USING (auth.uid() = user_id);
 
 -- Insert default master data
 INSERT INTO pairs (name) VALUES 
@@ -168,4 +185,7 @@ $$ language 'plpgsql';
 
 -- Trigger to automatically update updated_at
 CREATE TRIGGER update_trades_updated_at BEFORE UPDATE ON trades
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_account_settings_updated_at BEFORE UPDATE ON account_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

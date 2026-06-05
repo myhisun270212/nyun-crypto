@@ -40,6 +40,8 @@ export default function SettingsPage() {
     fundingConditions: [],
     triggers: [],
   })
+  const [accountSettings, setAccountSettings] = useState<{ starting_balance: number }>({ starting_balance: 0 })
+  const [startingBalanceInput, setStartingBalanceInput] = useState('')
   const [newItems, setNewItems] = useState({
     pairs: '',
     setups: '',
@@ -52,6 +54,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchMasterData()
+    fetchAccountSettings()
   }, [])
 
   const fetchMasterData = async () => {
@@ -91,6 +94,54 @@ export default function SettingsPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAccountSettings = async () => {
+    try {
+      const response = await fetch('/api/account-settings')
+      if (!response.ok) throw new Error('Failed to fetch account settings')
+      const data = await response.json()
+      setAccountSettings(data)
+      setStartingBalanceInput(data.starting_balance?.toString() || '')
+    } catch (error) {
+      console.error('Error fetching account settings:', error)
+    }
+  }
+
+  const handleUpdateAccountSettings = async () => {
+    const startingBalance = parseFloat(startingBalanceInput)
+    if (isNaN(startingBalance) || startingBalance < 0) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a valid starting balance',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      const response = await fetch('/api/account-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ starting_balance: startingBalance }),
+      })
+
+      if (!response.ok) throw new Error('Failed to update account settings')
+
+      toast({
+        title: 'Success',
+        description: 'Account settings updated successfully',
+        duration: 1000,
+      })
+      fetchAccountSettings()
+    } catch (error) {
+      console.error('Error updating account settings:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to update account settings',
+        variant: 'destructive',
+      })
     }
   }
 
@@ -164,8 +215,12 @@ export default function SettingsPage() {
         <p className="text-sm md:text-base text-muted-foreground">Manage your master data</p>
       </div>
 
-      <Tabs defaultValue="pairs" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7 h-auto gap-1">
+      <Tabs defaultValue="account" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-8 h-auto gap-1">
+          <TabsTrigger value="account" className="text-[10px] px-1 py-2">
+            Account
+          </TabsTrigger>
+
           <TabsTrigger value="pairs" className="text-[10px] px-1 py-2">
             Pairs
           </TabsTrigger>
@@ -194,6 +249,37 @@ export default function SettingsPage() {
             Trigger
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="account">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg md:text-xl">Account Settings</CardTitle>
+              <CardDescription className="text-sm">Manage your account starting balance for growth tracking</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="startingBalance">Starting Balance (USDT)</Label>
+                  <Input
+                    id="startingBalance"
+                    type="number"
+                    placeholder="Enter your starting balance"
+                    value={startingBalanceInput}
+                    onChange={(e) => setStartingBalanceInput(e.target.value)}
+                    min="0"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This is your initial account balance. Used to calculate account growth metrics.
+                  </p>
+                </div>
+                <Button onClick={handleUpdateAccountSettings}>
+                  Save Settings
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="pairs">
           <Card>

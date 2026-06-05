@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BookOpen, TrendingUp, TrendingDown, Target } from 'lucide-react'
+import { BookOpen, TrendingUp, TrendingDown, Target, Wallet, Percent } from 'lucide-react'
 import EquityCurveChart from '@/components/charts/EquityCurveChart'
 import MonthlyPerformanceChart from '@/components/charts/MonthlyPerformanceChart'
 
@@ -21,11 +21,13 @@ export default function DashboardPage() {
     average_rr: 0,
     profit_factor: 0,
   })
+  const [accountSettings, setAccountSettings] = useState<{ starting_balance: number }>({ starting_balance: 0 })
   const [trades, setTrades] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchDashboardData()
+    fetchAccountSettings()
   }, [])
 
   const fetchDashboardData = async () => {
@@ -94,7 +96,35 @@ export default function DashboardPage() {
     }
   }
 
+  const fetchAccountSettings = async () => {
+    try {
+      const response = await fetch('/api/account-settings')
+      if (!response.ok) throw new Error('Failed to fetch account settings')
+      const data = await response.json()
+      setAccountSettings(data)
+    } catch (error) {
+      console.error('Error fetching account settings:', error)
+    }
+  }
+
+  // Calculate account growth metrics
+  const startingBalance = accountSettings.starting_balance || 0
+  const saldoAkhir = startingBalance > 0 ? startingBalance + stats.total_profit_usdt : 0
+  const growthPersen = startingBalance > 0 ? (stats.total_profit_usdt / startingBalance) * 100 : 0
+
   const statCards = [
+    {
+      title: 'Saldo Akhir',
+      value: `$${saldoAkhir.toFixed(2)}`,
+      icon: Wallet,
+      color: saldoAkhir >= startingBalance ? 'text-green-500' : 'text-red-500',
+    },
+    {
+      title: 'Growth %',
+      value: `${growthPersen >= 0 ? '+' : ''}${growthPersen.toFixed(2)}%`,
+      icon: Percent,
+      color: growthPersen >= 0 ? 'text-green-500' : 'text-red-500',
+    },
     {
       title: 'Total Trades',
       value: stats.total_trades,

@@ -30,7 +30,12 @@ export default function AnalyticsPage() {
     worst_setup: 'N/A',
     best_pair: 'N/A',
     worst_pair: 'N/A',
+    saldo_awal: 0,
+    saldo_akhir: 0,
+    selisih_persen: 0,
+    growth_persen: 0,
   })
+  const [accountSettings, setAccountSettings] = useState<{ starting_balance: number }>({ starting_balance: 0 })
   const [setupPerformance, setSetupPerformance] = useState<Record<string, { wins: number; total: number; profit: number }>>({})
   const [pairPerformance, setPairPerformance] = useState<Record<string, { wins: number; total: number; profit: number }>>({})
   const [filteredTrades, setFilteredTrades] = useState<any[]>([])
@@ -38,11 +43,23 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     handleQuickDate(30)
+    fetchAccountSettings()
   }, [])
 
   useEffect(() => {
     fetchAnalytics()
-  }, [startDate, endDate, pair, setup])
+  }, [startDate, endDate, pair, setup, accountSettings])
+
+  const fetchAccountSettings = async () => {
+    try {
+      const response = await fetch('/api/account-settings')
+      if (!response.ok) throw new Error('Failed to fetch account settings')
+      const data = await response.json()
+      setAccountSettings(data)
+    } catch (error) {
+      console.error('Error fetching account settings:', error)
+    }
+  }
 
   const fetchAnalytics = async () => {
     setLoading(true)
@@ -79,6 +96,10 @@ export default function AnalyticsPage() {
           worst_setup: 'N/A',
           best_pair: 'N/A',
           worst_pair: 'N/A',
+          saldo_awal: 0,
+          saldo_akhir: 0,
+          selisih_persen: 0,
+          growth_persen: 0,
         })
         setSetupPerformance({})
         setPairPerformance({})
@@ -98,6 +119,13 @@ export default function AnalyticsPage() {
       // Use helper function for analytics calculation
       const analyticsResult = calculateAnalytics(filteredTrades)
 
+      // Calculate account growth metrics
+      const startingBalance = accountSettings.starting_balance || 0
+      const saldoAwal = startingBalance > 0 ? startingBalance : 0
+      const saldoAkhir = startingBalance > 0 ? startingBalance + analyticsResult.profit_usdt : 0
+      const selisihPersen = startingBalance > 0 ? ((saldoAkhir - saldoAwal) / saldoAwal) * 100 : 0
+      const growthPersen = startingBalance > 0 ? (analyticsResult.profit_usdt / startingBalance) * 100 : 0
+
       setAnalytics({
         total_trades: analyticsResult.total_trades,
         win_rate: analyticsResult.win_rate,
@@ -109,6 +137,10 @@ export default function AnalyticsPage() {
         worst_setup: analyticsResult.worst_setup,
         best_pair: analyticsResult.best_pair,
         worst_pair: analyticsResult.worst_pair,
+        saldo_awal: saldoAwal,
+        saldo_akhir: saldoAkhir,
+        selisih_persen: selisihPersen,
+        growth_persen: growthPersen,
       })
 
       setSetupPerformance(analyticsResult.setupPerformance)
@@ -235,7 +267,61 @@ export default function AnalyticsPage() {
           </div>
         </CardContent>
       </Card>
-            
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card>
+          <CardHeader className="pb-1 px-4 pt-4">
+            <CardTitle className="text-xs md:text-sm text-muted-foreground">
+              Saldo Awal
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="text-lg md:text-2xl font-bold">
+              ${analytics.saldo_awal.toFixed(2)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-1 px-4 pt-4">
+            <CardTitle className="text-xs md:text-sm text-muted-foreground">
+              Saldo Akhir
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className={`text-lg md:text-2xl font-bold ${analytics.saldo_akhir >= analytics.saldo_awal ? 'text-green-500' : 'text-red-500'}`}>
+              ${analytics.saldo_akhir.toFixed(2)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-1 px-4 pt-4">
+            <CardTitle className="text-xs md:text-sm text-muted-foreground">
+              Selisih %
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className={`text-lg md:text-2xl font-bold ${analytics.selisih_persen >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {analytics.selisih_persen >= 0 ? '+' : ''}{analytics.selisih_persen.toFixed(2)}%
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-1 px-4 pt-4">
+            <CardTitle className="text-xs md:text-sm text-muted-foreground">
+              Growth %
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className={`text-lg md:text-2xl font-bold ${analytics.growth_persen >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {analytics.growth_persen >= 0 ? '+' : ''}{analytics.growth_persen.toFixed(2)}%
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
           <CardHeader className="pb-1 px-4 pt-4">
