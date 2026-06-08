@@ -48,6 +48,7 @@ export default function EditTradePage() {
     rr: '',
     risk_percent: '',
     result_percent: '',
+    result_usdt: '',
     plan_followed: false,
     mistake: '',
     notes: '',
@@ -98,6 +99,7 @@ export default function EditTradePage() {
         rr: trade.rr.toString(),
         risk_percent: trade.risk_percent.toString(),
         result_percent: trade.result_percent.toString(),
+        result_usdt: trade.result_usdt.toString(),
         plan_followed: trade.plan_followed,
         mistake: trade.mistake || '',
         notes: trade.notes || '',
@@ -152,8 +154,6 @@ export default function EditTradePage() {
         throw new Error('User not authenticated')
       }
 
-      const result_usdt = Number(formData.margin) * (Number(formData.result_percent) / 100)
-
       const { error } = await supabase
         .from('trades')
         .update({
@@ -169,7 +169,7 @@ export default function EditTradePage() {
           rr: Number(formData.rr),
           risk_percent: Number(formData.risk_percent),
           result_percent: Number(formData.result_percent),
-          result_usdt,
+          result_usdt: Number(formData.result_usdt),
           plan_followed: formData.plan_followed,
           mistake: formData.mistake || null,
           notes: formData.notes || null,
@@ -388,6 +388,19 @@ export default function EditTradePage() {
                   placeholder="5.0"
                   value={formData.result_percent}
                   onChange={(e) => handleChange('result_percent', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="result_usdt">Result USDT</Label>
+                <Input
+                  id="result_usdt"
+                  type="number"
+                  step="0.01"
+                  placeholder="10.51"
+                  value={formData.result_usdt}
+                  onChange={(e) => handleChange('result_usdt', e.target.value)}
                   required
                 />
               </div>

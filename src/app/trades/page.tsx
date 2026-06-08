@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
-import { PlusCircle, Search, Edit, Trash2, Eye } from 'lucide-react'
+import { PlusCircle, Search, Edit, Trash2, Eye, Download, Upload } from 'lucide-react'
 import Link from 'next/link'
 
 export default function TradesPage({
@@ -19,6 +19,7 @@ export default function TradesPage({
   const [trades, setTrades] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState(searchParams.search || '')
+  const [importFile, setImportFile] = useState<File | null>(null)
 
   useEffect(() => {
     fetchTrades()
@@ -72,6 +73,127 @@ export default function TradesPage({
     }
   }
 
+  const handleExportCSV = () => {
+    const now = new Date()
+    const day = String(now.getDate()).padStart(2, '0')
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const year = now.getFullYear()
+    const fileName = `dtcrypto_${day}-${month}-${year}.csv`
+
+    const headers = [
+      'Date', 'Pair', 'Direction', 'Setup', 'BTC Context', 'OI', 'Funding', 'Trigger',
+      'Margin', 'Leverage', 'RR', 'Risk %', 'Result %', 'Result USDT', 'Plan Followed', 'Mistake', 'Notes'
+    ]
+
+    const csvRows = trades.map(trade => [
+      trade.trade_date,
+      trade.pair,
+      trade.direction,
+      trade.setup,
+      trade.btc_context,
+      trade.oi,
+      trade.funding,
+      trade.trigger,
+      trade.margin,
+      trade.leverage,
+      trade.rr,
+      trade.risk_percent,
+      trade.result_percent,
+      trade.result_usdt,
+      trade.plan_followed ? 'Yes' : 'No',
+      trade.mistake || '',
+      trade.notes || ''
+    ])
+
+    const csvContent = [
+      headers.join(','),
+      ...csvRows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', fileName)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImportFile(file)
+
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      const csvText = event.target?.result as string
+      const lines = csvText.split('\n')
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+
+      const importedTrades = []
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue
+
+        const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''))
+        const trade: any = {}
+
+        headers.forEach((header, index) => {
+          trade[header.toLowerCase().replace(/ /g, '_')] = values[index]
+        })
+
+        importedTrades.push(trade)
+      }
+
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) {
+          alert('User not authenticated')
+          return
+        }
+
+        for (const trade of importedTrades) {
+          const { error } = await supabase.from('trades').insert({
+            user_id: user.id,
+            trade_date: trade.date,
+            pair: trade.pair,
+            direction: trade.direction,
+            setup: trade.setup,
+            btc_context: trade.btc_context,
+            oi: trade.oi,
+            funding: trade.funding,
+            trigger: trade.trigger,
+            margin: Number(trade.margin),
+            leverage: Number(trade.leverage),
+            rr: Number(trade.rr),
+            risk_percent: Number(trade.risk_percent),
+            result_percent: Number(trade.result_percent),
+            result_usdt: Number(trade.result_usdt),
+            plan_followed: trade.plan_followed === 'Yes',
+            mistake: trade.mistake || null,
+            notes: trade.notes || null,
+          })
+
+          if (error) {
+            console.error('Error importing trade:', error)
+          }
+        }
+
+        alert(`Successfully imported ${importedTrades.length} trades`)
+        fetchTrades()
+      } catch (error) {
+        console.error('Error importing CSV:', error)
+        alert('Failed to import CSV')
+      }
+    }
+
+    reader.readAsText(file)
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -79,12 +201,29 @@ export default function TradesPage({
           <h1 className="text-2xl md:text-3xl font-bold">Trade Log</h1>
           <p className="text-sm md:text-base text-muted-foreground">View and manage your trading history</p>
         </div>
-        <Link href="/trades/new">
-          <Button className="w-full sm:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Trade
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button onClick={handleExportCSV} variant="outline" className="flex-1 sm:flex-none">
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
           </Button>
-        </Link>
+          <Button onClick={() => document.getElementById('import-csv')?.click()} variant="outline" className="flex-1 sm:flex-none">
+            <Upload className="mr-2 h-4 w-4" />
+            Import CSV
+          </Button>
+          <input
+            id="import-csv"
+            type="file"
+            accept=".csv"
+            onChange={handleImportCSV}
+            className="hidden"
+          />
+          <Link href="/trades/new" className="flex-1 sm:flex-none">
+            <Button className="w-full">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Trade
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
